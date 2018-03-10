@@ -6,14 +6,25 @@ Created on Fri Dec 29 19:35:05 2017
 """
 import numpy as np 
 import pandas as pd 
+from sklearn.model_selection import train_test_split
 
+testUserId = 2
 dataFile='/Users/adityagaonkr/Downloads/RS/ml-100k/u.data'
 userDataBeforeFilter=pd.read_csv(dataFile,sep="\t",header=None,
                  names=['userId','itemId','rating','timestamp'])
                  
-#userData = userDataBeforeFilter[userDataBeforeFilter["userId"]< 800]
-userData = userDataBeforeFilter.drop(userDataBeforeFilter[(userDataBeforeFilter.userId == 253) & (userDataBeforeFilter.itemId == 465)].index)            
-#userData = userDataBeforeFilter
+                 
+#---------------Drop records with user id
+                 
+dropIndexes = userDataBeforeFilter.index[userDataBeforeFilter['userId'] == testUserId].tolist()
+userData = userDataBeforeFilter.drop(dropIndexes)
+
+#---------------Store original ratings of test user
+originalVector = {}
+for index in dropIndexes:
+    originalVector[index] =  userDataBeforeFilter.at[index,'rating']
+
+print(originalVector.values)
                  
 movieInfoFile="/Users/adityagaonkr/Downloads/RS/ml-100k/u.item"
 
