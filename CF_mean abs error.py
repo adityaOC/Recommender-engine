@@ -6,54 +6,9 @@ Created on Fri Dec 29 19:35:05 2017
 """
 import numpy as np 
 import pandas as pd 
-from sklearn.model_selection import train_test_split
-
-testUserId = 2
-dataFile='/Users/adityagaonkr/Downloads/RS/ml-100k/u.data'
-userDataBeforeFilter=pd.read_csv(dataFile,sep="\t",header=None,
-                 names=['userId','itemId','rating','timestamp'])
-                 
-                 
-#---------------Drop records with user id
-                 
-dropIndexes = userDataBeforeFilter.index[userDataBeforeFilter['userId'] == testUserId].tolist()
-userData = userDataBeforeFilter.drop(dropIndexes)
-
-#---------------Store original ratings of test user
-originalVector = {}
-for index in dropIndexes:
-    originalVector[index] =  userDataBeforeFilter.at[index,'rating']
-
-print(originalVector.values)
-                 
-movieInfoFile="/Users/adityagaonkr/Downloads/RS/ml-100k/u.item"
-
-movieInfo=pd.read_csv(movieInfoFile,sep="|", header=None, index_col=False,
-                     names=["itemId","title"], usecols=[0,1],encoding = 'latin')
 
 
 
-
-movieInfoData=pd.merge(userData,movieInfo,left_on='itemId',right_on="itemId")
-#temp = movieInfoData[movieInfoData.userId==20]
-
-userIds=movieInfoData.userId # a Pandas series object
-userIds2=movieInfoData[['userId']] # a Pandas DataFrame object
-# Both of these are essentially the same
-movieInfoData.loc[0:10,['userId']]
-
-
-toyStoryUsers=movieInfoData[movieInfoData.title=="Toy Story (1995)"]
-movieInfoData=pd.DataFrame.sort_values(movieInfoData,['userId','itemId'],ascending=[0,1])
-
-
-numUsers=max(movieInfoData.userId)
-numMovies=max(movieInfoData.itemId)
-
-# WE can also see how many movies were rated by each user, and the number of users
-# that rated each movie 
-moviesPerUser=movieInfoData.userId.value_counts()
-usersPerMovie=movieInfoData.title.value_counts()
 
 def favoriteMovies(activeUser,N):
     #1. subset the dataframe to have the rows corresponding to the active user
@@ -67,8 +22,6 @@ def favoriteMovies(activeUser,N):
 #print(favoriteMovies(5,3)) # Prin
 
 
-userItemRatingMatrix=pd.pivot_table(userData, values='rating',
-                                    index=['userId'], columns=['itemId'])
 
 #print(userItemRatingMatrix.head())
 
@@ -134,6 +87,7 @@ def nearestNeighbourRatings(activeUser,K):
     for i in userItemRatingMatrix.columns:
         # for each item 
         predictedRating=np.nanmean(userItemRatingMatrix.loc[activeUser])
+        sumOfSimilarity = 0
         # start with the average rating of the user
         for j in neighbourItemRatings.index:
             # for each neighbour in the neighbour list 
@@ -146,9 +100,14 @@ def nearestNeighbourRatings(activeUser,K):
                 #    the similarity of the neighbour to the active user
                 predictedRating += (userItemRatingMatrix.loc[j,i]
                                     -np.nanmean(userItemRatingMatrix.loc[j]))*nearestNeighbours.loc[j,'Similarity']
+                sumOfSimilarity = sumOfSimilarity + nearestNeighbours.loc[j, 'Similarity']
         # We are out of the loop which uses the nearest neighbours, add the 
         # rating to the predicted Rating matrix
-        predictItemRating.loc[i,'Rating']=predictedRating
+         
+        if sumOfSimilarity !=0:
+            predictItemRating.loc[i,'Rating']=predictedRating/sumOfSimilarity
+        else:
+            predictItemRating.loc[i, 'Rating'] = predictedRating
     return predictItemRating
 
 
@@ -167,18 +126,89 @@ def topNRecommendations(activeUser,N):
     
     #print("moviesAlreadyWatched : {}".format(moviesAlreadyWatched))
     #print("predictItemRating : {}".format(list(predictItemRating["Rating"])))
+    
     #print("topRecommendations :{}".format(topRecommendations))
+    
+    
+    itemList = rmseDf['itemId'].values.tolist()
+    itemList.sort()
+    for itemId in itemList:
+        itemId = int(itemId)
+        #print(int(itemId))
+        #print("predictItemRating {}: {}".format(itemId,predictItemRating.iloc[itemId]['Rating']))
+        rmseDf.loc[rmseDf['itemId'] == itemId, 'PR'] = predictItemRating.iloc[itemId]['Rating']
+        
     
     topRecommendationTitles=(movieInfo.loc[movieInfo.itemId.isin(topRecommendations.index)])
     return list(topRecommendationTitles.title)
     
 
-activeUser=442
+
+
+#-----------------------------------------------------------------------------
+
+testUserId = 7
+globalPredictedRatings = {}
+dataFile='/Users/adityagaonkr/Downloads/RS/ml-100k/u.data'
+userDataBeforeFilter=pd.read_csv(dataFile,sep="\t",header=None,
+                 names=['userId','itemId','rating','timestamp'])
+                                
+#---------------Drop records with user id
+                 
+dropIndexes = userDataBeforeFilter.index[userDataBeforeFilter['userId'] == testUserId].tolist()
+#userData = userDataBeforeFilter.drop(dropIndexes)
+userData = userDataBeforeFilter
+#userData.at[dropIndexes[0], 'rating'] = 0
+
+#---------------Store original ratings of test user
+rmseDf = pd.DataFrame(columns=['itemId','rating','PR'])
+originalVector = {} #{index,rating}
+i = 0
+for index in dropIndexes:
+    
+    rmseDf.loc[i] = userDataBeforeFilter.iloc[dropIndexes[i]]
+    i+=1
+
+print(originalVector.values)
+                 
+movieInfoFile="/Users/adityagaonkr/Downloads/RS/ml-100k/u.item"
+
+movieInfo=pd.read_csv(movieInfoFile,sep="|", header=None, index_col=False,
+                     names=["itemId","title"], usecols=[0,1],encoding = 'latin')
+
+movieInfoData=pd.merge(userData,movieInfo,left_on='itemId',right_on="itemId")
+
+userItemRatingMatrix=pd.pivot_table(userData, values='rating',
+                                    index=['userId'], columns=['itemId'])
+
+
+#-----------------------------------------------------------------------------
+
+activeUser=testUserId
 #print("hello")
 #print(favoriteMovies(activeUser,5),"\n Recommendations: \n",topNRecommendations(activeUser,3))
 print("\n")
 print("Favorite movies: {}".format(favoriteMovies(activeUser,10)))
 print("\n")
 print("Recommendations: {}".format(topNRecommendations(activeUser,3)))
+
+print("----------RMSE----------------------------")
+#print("users average rating = {}".format(np.mean(rmseDf['rating'].values.tolist())))
+#rmseDf[rmseDf < 0] =np.mean(rmseDf['rating'].values.tolist())
+from sklearn.metrics import mean_squared_error
+y_true = rmseDf['rating'].values.tolist()
+y_pred = rmseDf['PR'].values.tolist()
+error = mean_squared_error(y_true, y_pred)
+print("RMSE  = {}".format(error))
+
+from sklearn.metrics import mean_absolute_error
+y_true = rmseDf['rating'].values.tolist()
+y_pred = rmseDf['PR'].values.tolist()
+mabse = mean_absolute_error(y_true, y_pred)
+print("mean_absolute_error  = {}".format(mabse))
+
+#for index in originalVector:
+#    print(index,originalVector[index])
+   
 
 
