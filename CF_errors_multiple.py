@@ -6,9 +6,16 @@ Created on Fri Dec 29 19:35:05 2017
 """
 import numpy as np 
 import pandas as pd 
+from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_absolute_error
 
-
-
+testUserId = 7
+userData = pd.DataFrame() 
+movieInfoData = pd.DataFrame() 
+userItemRatingMatrix = pd.DataFrame() 
+movieInfo = pd.DataFrame() 
+rmseDf = pd.DataFrame(columns=['itemId','rating','PR'])
+resultDf = pd.DataFrame(columns=['userId','NOU','MAE','RMSE'])
 
 def favoriteMovies(activeUser,N):
     #1. subset the dataframe to have the rows corresponding to the active user
@@ -146,9 +153,77 @@ def topNRecommendations(activeUser,N):
 
 
 #-----------------------------------------------------------------------------
+def mainMethod():
+    
+    
+    dataFile='/Users/adityagaonkr/Downloads/RS/ml-100k/u.data'
+    userDataBeforeFilter=pd.read_csv(dataFile,sep="\t",header=None,
+                 names=['userId','itemId','rating','timestamp'])
+                                
+    #---------------Drop records with user id
+                 
+    dropIndexes = userDataBeforeFilter.index[userDataBeforeFilter['userId'] == testUserId].tolist()
+    userData = userDataBeforeFilter
 
-testUserId = 7
-globalPredictedRatings = {}
+
+    #---------------Store original ratings of test user
+    
+    
+    i = 0
+    for index in dropIndexes:
+    
+        rmseDf.loc[i] = userDataBeforeFilter.iloc[dropIndexes[i]]
+        i+=1
+
+   
+                 
+    movieInfoFile="/Users/adityagaonkr/Downloads/RS/ml-100k/u.item"
+
+    movieInfo=pd.read_csv(movieInfoFile,sep="|", header=None, index_col=False,
+                     names=["itemId","title"], usecols=[0,1],encoding = 'latin')
+
+    movieInfoData=pd.merge(userData,movieInfo,left_on='itemId',right_on="itemId")
+
+    userItemRatingMatrix=pd.pivot_table(userData, values='rating',
+                                    index=['userId'], columns=['itemId'])
+
+
+    #-----------------------------------------------------------------------------
+
+    activeUser=testUserId
+    #print("hello")
+    #print(favoriteMovies(activeUser,5),"\n Recommendations: \n",topNRecommendations(activeUser,3))
+    print("\n")
+    print("Favorite movies: {}".format(favoriteMovies(activeUser,10)))
+    print("\n")
+    print("Recommendations: {}".format(topNRecommendations(activeUser,3)))
+
+    print("----------RMSE----------------------------")
+    #print("users average rating = {}".format(np.mean(rmseDf['rating'].values.tolist())))
+    #rmseDf[rmseDf < 0] =np.mean(rmseDf['rating'].values.tolist())
+    
+    y_true = rmseDf['rating'].values.tolist()
+    y_pred = rmseDf['PR'].values.tolist()
+    RMSE = mean_squared_error(y_true, y_pred)
+    print("RMSE  = {}".format(RMSE))
+
+    
+    y_true = rmseDf['rating'].values.tolist()
+    y_pred = rmseDf['PR'].values.tolist()
+    mabse = mean_absolute_error(y_true, y_pred)
+    print("mean_absolute_error  = {}".format(mabse))
+    
+    resultDf.loc[resultDf['userId'] == activeUser, 'MAE'] = mabse
+    resultDf.loc[resultDf['userId'] == activeUser, 'RMSE'] = RMSE
+    resultDf.loc[resultDf['userId'] == activeUser, 'NOU'] =len(dropIndexes)
+
+#for index in originalVector:
+#    print(index,originalVector[index])
+  
+
+
+
+
 dataFile='/Users/adityagaonkr/Downloads/RS/ml-100k/u.data'
 userDataBeforeFilter=pd.read_csv(dataFile,sep="\t",header=None,
                  names=['userId','itemId','rating','timestamp'])
@@ -156,20 +231,19 @@ userDataBeforeFilter=pd.read_csv(dataFile,sep="\t",header=None,
 #---------------Drop records with user id
                  
 dropIndexes = userDataBeforeFilter.index[userDataBeforeFilter['userId'] == testUserId].tolist()
-#userData = userDataBeforeFilter.drop(dropIndexes)
 userData = userDataBeforeFilter
-#userData.at[dropIndexes[0], 'rating'] = 0
 
-#---------------Store original ratings of test user
-rmseDf = pd.DataFrame(columns=['itemId','rating','PR'])
-originalVector = {} #{index,rating}
+
+    #---------------Store original ratings of test user
+    
+    
 i = 0
 for index in dropIndexes:
     
-    rmseDf.loc[i] = userDataBeforeFilter.iloc[dropIndexes[i]]
-    i+=1
+   rmseDf.loc[i] = userDataBeforeFilter.iloc[dropIndexes[i]]
+   i+=1
 
-print(originalVector.values)
+   
                  
 movieInfoFile="/Users/adityagaonkr/Downloads/RS/ml-100k/u.item"
 
@@ -182,34 +256,44 @@ userItemRatingMatrix=pd.pivot_table(userData, values='rating',
                                     index=['userId'], columns=['itemId'])
 
 
-#-----------------------------------------------------------------------------
+ #-----------------------------------------------------------------------------
 
 activeUser=testUserId
-#print("hello")
-#print(favoriteMovies(activeUser,5),"\n Recommendations: \n",topNRecommendations(activeUser,3))
+
 print("\n")
 print("Favorite movies: {}".format(favoriteMovies(activeUser,10)))
 print("\n")
 print("Recommendations: {}".format(topNRecommendations(activeUser,3)))
 
 print("----------RMSE----------------------------")
-#print("users average rating = {}".format(np.mean(rmseDf['rating'].values.tolist())))
-#rmseDf[rmseDf < 0] =np.mean(rmseDf['rating'].values.tolist())
 
-from sklearn.metrics import mean_squared_error
+
 y_true = rmseDf['rating'].values.tolist()
 y_pred = rmseDf['PR'].values.tolist()
 error = mean_squared_error(y_true, y_pred)
 print("RMSE  = {}".format(error))
 
-from sklearn.metrics import mean_absolute_error
+
 y_true = rmseDf['rating'].values.tolist()
 y_pred = rmseDf['PR'].values.tolist()
 mabse = mean_absolute_error(y_true, y_pred)
 print("mean_absolute_error  = {}".format(mabse))
 
-#for index in originalVector:
-#    print(index,originalVector[index])
-   
+
+
+testUserList = [1,50,100,150,200,250]
+resultDf['userId'] = userData['userId'].unique()
+for u in range(1,6):
+    
+    testUserId = u
+    mainMethod()  
+
+
+
+
+
+print("------------------------_DONE------------------")
+
+
 
 
